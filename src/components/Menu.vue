@@ -18,8 +18,7 @@
 
           </v-list-item-title>
           <v-list-item-subtitle class="white--text">
-
-            
+            place holider button
           </v-list-item-subtitle>
         </v-list-item-content>
       </v-list-item>

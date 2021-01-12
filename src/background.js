@@ -7,6 +7,7 @@ import { autoUpdater } from "electron-updater"
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const windowStateKeeper = require('electron-window-state')
 
+
 //electron updater
 autoUpdater.autoDownload = false;
 
@@ -50,20 +51,21 @@ async function createWindow() {
   }
 }
 
-async function createsplash() {
+async function createSplash() {
 
   const splash = new BrowserWindow({
 
-    'width': 420,
-    'height': 500,
-    'show':true,
+    'width': 375,
+    'height': 450,
     'frame':false,
-    webPreferences: {
-      nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION
-    }
   })
-    splash.loadURL('../public/splash.html')
-    //autoUpdater.checkForUpdatesAndNotify()
+  if (process.env.WEBPACK_DEV_SERVER_URL) {
+  // Load the url of the dev server if in development mode
+  splash.loadURL(process.env.WEBPACK_DEV_SERVER_URL + 'splash.html')
+  if (!process.env.IS_TEST) video_player.webContents.openDevTools()
+  } else {
+  splash.loadURL(`app://splash`)
+}
 }
 
 // Quit when all windows are closed.
@@ -96,7 +98,7 @@ app.on('ready', async () => {
 
   //handle checking for new application updates
   if (isDevelopment ) {
-    createWindow()
+    createSplash()
   }
   else {
     autoUpdater.checkForUpdates()
@@ -105,7 +107,7 @@ app.on('ready', async () => {
   autoUpdater.on('checking-for-update', () => {
   })
   autoUpdater.on('update-available', (info) => {
-    createsplash()
+    createSplash()
     autoUpdater.downloadUpdate()
   })
   autoUpdater.on('update-not-available', (info) => {
