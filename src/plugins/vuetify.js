@@ -1,6 +1,6 @@
 import Vue from 'vue';
 import Vuetify from 'vuetify/lib/framework';
-import { preset } from 'vue-cli-plugin-vuetify-preset-reply/preset'
+import { preset } from 'vue-cli-plugin-vuetify-preset-crane/preset'
 
 Vue.use(Vuetify);
 

@@ -6,8 +6,13 @@ import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
 import { autoUpdater } from "electron-updater"
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const windowStateKeeper = require('electron-window-state')
+const electron = require('electron');
+const ipc = electron.ipcRenderer;
+const path = require('path');
 
-
+//windows
+let mainWindow
+let splashWindow
 //electron updater
 autoUpdater.autoDownload = false;
 
@@ -16,7 +21,7 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { secure: true, standard: true } }
 ])
 
-async function createWindow() {
+  function createWindow(devPath, prodPath) {
   // Create the browser window.
 
   let mainWindowState = windowStateKeeper({
@@ -24,48 +29,59 @@ async function createWindow() {
     defaultHeight: 600
   })
 
-   const win = new BrowserWindow({
+    let mainWindow = new BrowserWindow({
     'x': mainWindowState.x,
     'y': mainWindowState.y,
     'width': mainWindowState.width,
     'height': mainWindowState.height,
-    'show':true,
+    'minWidth': 800,
+    'minHeight': 600,
+    'show':false,
+    'frame': true,
     webPreferences: {
       // Use pluginOptions.nodeIntegration, leave this alone
       // See nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration for more info
-      nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION
+      nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION,
+      preload: path.join(__dirname, 'preload.js'),
+      enableRemoteModule: true
     }
   })
-
-  mainWindowState.manage(win);
+  mainWindow.setMenu(null)
+  mainWindowState.manage(mainWindow);
 
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode
-    await win.loadURL(process.env.WEBPACK_DEV_SERVER_URL)
-    //if (!process.env.IS_TEST) win.webContents.openDevTools()
+     mainWindow.loadURL(process.env.WEBPACK_DEV_SERVER_URL + devPath)
+    if (!process.env.IS_TEST) mainWindow.webContents.openDevTools()
   } else {
     createProtocol('app')
     // Load the index.html when not in development
-    win.loadURL('app://./index.html')
+    mainWindow.loadURL(`app://./${prodPath}`)
     //autoUpdater.checkForUpdatesAndNotify()
   }
+   return mainWindow
 }
 
-async function createSplash() {
+  function createSplashWindow(devPath, prodPath) {
 
-  const splash = new BrowserWindow({
+  let splashWindow = new BrowserWindow({
 
     'width': 375,
     'height': 450,
     'frame':false,
+    'show' : true,
+    'backgroundColor': '#344955',
   })
   if (process.env.WEBPACK_DEV_SERVER_URL) {
-  // Load the url of the dev server if in development mode
-  splash.loadURL(process.env.WEBPACK_DEV_SERVER_URL + 'splash.html')
-  if (!process.env.IS_TEST) video_player.webContents.openDevTools()
+    // Load the url of the dev server if in development mode
+    splashWindow.loadURL(process.env.WEBPACK_DEV_SERVER_URL + 'splash.html')
+    //if (!process.env.IS_TEST) splashWindow.webContents.openDevTools()
   } else {
-  splash.loadURL(`app://splash`)
-}
+    splashWindow.loadURL(`app://./${prodPath}`)
+  }
+
+  splashWindow.on('closed', () => { splashWindow = null })
+  return splashWindow
 }
 
 // Quit when all windows are closed.
@@ -80,7 +96,7 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   // On macOS it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
-  if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
 })
 
 // This method will be called when Electron has finished
@@ -96,32 +112,30 @@ app.on('ready', async () => {
     }
   }
 
-  //handle checking for new application updates
-  if (isDevelopment ) {
-    createSplash()
-  }
-  else {
-    autoUpdater.checkForUpdates()
-  }
+  //create the windows
+  mainWindow = createWindow('', 'index.html')
+  splashWindow = createSplashWindow('', 'splash.html')
 
-  autoUpdater.on('checking-for-update', () => {
-  })
-  autoUpdater.on('update-available', (info) => {
-    createSplash()
-    autoUpdater.downloadUpdate()
-  })
-  autoUpdater.on('update-not-available', (info) => {
-    createWindow()
-  })
-  autoUpdater.on('update-downloaded', () => {
-    setTimeout(() => { autoUpdater.quitAndInstall() }, 5100);
-  })
+  //check for updates
+  autoUpdater.checkForUpdates()
 
-  autoUpdater.on('error', (err) => {
-    createWindow()
+  //display splashscreen till main window is loaded unless there is an update available
+  mainWindow.once('ready-to-show', () => {
+    //download the update if there is one available
+    autoUpdater.on('update-available', (info) => {
+       autoUpdater.downloadUpdate()
+    })
+    //restart and install the update
+    autoUpdater.on('update-downloaded', () => {
+      setTimeout(() => { autoUpdater.quitAndInstall() }, 5100);
+     })
+
+    mainWindow.show()
+
+    //destroy splash Splashcreen
+    splashWindow.close()
   })
 })
-
 
 // Exit cleanly on request from parent process in development mode.
 if (isDevelopment) {
